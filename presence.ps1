@@ -1,14 +1,21 @@
 <#
-  VBAPL BricsCAD LISP - tells the office network this PC is on the build.
+  VBAPL BricsCAD LISP - the session Start.bat opens. One per Windows user.
 
-  Start.bat runs this. Every 15 seconds it broadcasts one small UDP packet
-  (port 45753) on every local network this PC is on. The lisp-dev app listens
-  for it and lists the PC under "Office PCs on the build": its name, user,
-  which release it has, whether its files still match that release, and
-  whether BricsCAD is open.
+  ONE AT A TIME. The first thing it does is take a named mutex
+  (Local\VBAPL-Lisp-Start). If another session already holds it, this one
+  says so, brings that window forward and closes - without unlocking, so a
+  second double-click never uses up one of the 100 starts. Windows drops the
+  mutex the moment the session's window closes (however it closes), so
+  Start.bat works again straight away.
 
-  It only SENDS. Nothing listens on this PC and nothing is installed, so no
-  firewall rule or admin rights are needed here. Close the window to stop.
+  Then, in order:
+    1. unlock  vbapl-lisp.exe unlock - the 7 days / 100 starts licence
+    2. page    opens app\index.html (Commands, Getting started)
+    3. announce every 15 seconds, one small UDP packet (port 45753) on every
+               local network: the lisp-dev app lists the PC under "Office PCs
+               on the build" - name, user, release, whether its files still
+               match it, BricsCAD/AutoCAD open, licence. It only SENDS: no
+               firewall rule or admin rights needed on this PC.
 
   It also keeps the office LISP available: every beacon touches
   %LOCALAPPDATA%\VBAPL\Lisp\heartbeat, and vbapl-lisp.exe hands the LISP to
@@ -21,12 +28,33 @@
 #>
 param(
   [int]$Port = 45753,
-  [int]$Every = 15
+  [int]$Every = 15,
+  # Skip opening the page - for running this without a browser (tests).
+  [switch]$NoPage
 )
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $utf8 = New-Object System.Text.UTF8Encoding $false
+$TITLE = 'VBAPL LISP'
+
+# ----------------------------------------------------------- one at a time
+$first = $false
+$mutex = New-Object System.Threading.Mutex($true, 'Local\VBAPL-Lisp-Start', [ref]$first)
+if (-not $first) {
+  # Retitle this window first, so bringing "VBAPL LISP" forward finds the
+  # running session's window, not this one.
+  $Host.UI.RawUI.WindowTitle = "$TITLE - already running"
+  Write-Host ''
+  Write-Host '  VBAPL LISP is already running on this PC.' -ForegroundColor Yellow
+  Write-Host "  Use the open '$TITLE' window (taskbar). Close it first to start again."
+  Write-Host '  Nothing was unlocked and no start was used.'
+  Write-Host ''
+  try { [void](New-Object -ComObject WScript.Shell).AppActivate($TITLE) } catch { }
+  Start-Sleep -Seconds 5
+  exit 5
+}
+$Host.UI.RawUI.WindowTitle = $TITLE
 
 function Read-Json([string]$path) {
   if (Test-Path -LiteralPath $path) { [IO.File]::ReadAllText($path, $utf8) | ConvertFrom-Json }
@@ -69,21 +97,28 @@ function Get-Targets {
   @($out | Select-Object -Unique)
 }
 
-# The licence as vbapl-lisp.exe sees it - one JSON line; $null when the build
-# has no helper or it does not answer.
-function Get-Licence {
+# Runs vbapl-lisp.exe with one argument: its exit code and what it printed.
+# It is a windowless program, so its output is read from a pipe.
+function Invoke-Helper([string]$arg) {
   $exe = Join-Path $root 'vbapl-lisp.exe'
   if (-not (Test-Path -LiteralPath $exe)) { return $null }
   try {
-    $psi = New-Object System.Diagnostics.ProcessStartInfo $exe, 'status'
+    $psi = New-Object System.Diagnostics.ProcessStartInfo $exe, $arg
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.CreateNoWindow = $true
     $p = [System.Diagnostics.Process]::Start($psi)
     $out = $p.StandardOutput.ReadToEnd()
     $p.WaitForExit(15000) | Out-Null
-    $out | ConvertFrom-Json
+    [pscustomobject]@{ Code = $p.ExitCode; Out = $out.TrimEnd() }
   } catch { $null }
+}
+
+# The licence as vbapl-lisp.exe sees it; $null when it does not answer.
+function Get-Licence {
+  $r = Invoke-Helper 'status'
+  if (-not $r) { return $null }
+  try { $r.Out | ConvertFrom-Json } catch { $null }
 }
 
 $heartbeat = Join-Path $env:LOCALAPPDATA 'VBAPL\Lisp\heartbeat'
@@ -91,8 +126,6 @@ New-Item -ItemType Directory -Force -Path (Split-Path -Parent $heartbeat) | Out-
 
 $release = Read-Json (Join-Path $root 'RELEASE.json')
 $started = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
-$udp = New-Object System.Net.Sockets.UdpClient
-$udp.EnableBroadcast = $true
 
 Write-Host ''
 Write-Host '  VBAPL BricsCAD LISP' -ForegroundColor Cyan
@@ -103,9 +136,33 @@ if ($release) {
 } else {
   Write-Host '  Release  : unknown - this folder has no RELEASE.json' -ForegroundColor Yellow
 }
+Write-Host ''
+
+# ------------------------------------------------------------------ unlock
+# One "start" - only ever run by the session that holds the mutex.
+$unlock = Invoke-Helper 'unlock'
+if (-not $unlock) {
+  Write-Host '  vbapl-lisp.exe is missing or would not run - copy the whole release folder again.' -ForegroundColor Red
+} else {
+  $unlock.Out -split "`r?`n" | ForEach-Object { Write-Host $_ -ForegroundColor $(if ($unlock.Code -eq 0) { 'Green' } else { 'Yellow' }) }
+  if ($unlock.Code -ne 0) {
+    Write-Host '  AutoCAD / BricsCAD will not load the office LISP until this PC is unlocked.' -ForegroundColor Yellow
+  }
+}
+Write-Host ''
+
+# -------------------------------------------------------------------- page
+$page = Join-Path $root 'app\index.html'
+if (-not $NoPage -and (Test-Path -LiteralPath $page)) {
+  try { Start-Process -FilePath $page } catch { }
+}
+
+# ---------------------------------------------------------------- announce
+$udp = New-Object System.Net.Sockets.UdpClient
+$udp.EnableBroadcast = $true
 $targets = Get-Targets
 Write-Host "  Announcing this PC every $Every s on UDP $Port to: $($targets -join ', ')"
-Write-Host '  Leave this window open - minimise it. Close it to stop.'
+Write-Host '  Leave this window open - minimise it. Close it to stop; Start.bat starts it again.'
 Write-Host ''
 
 $seq = 0
@@ -154,4 +211,8 @@ try {
   }
 } finally {
   $udp.Close()
+  # Closing the window ends the process, which drops the mutex anyway; this is
+  # for the tidy exits (Ctrl+C).
+  try { $mutex.ReleaseMutex() } catch { }
+  $mutex.Dispose()
 }
