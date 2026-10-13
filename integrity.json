@@ -1,0 +1,13 @@
+{
+    "algorithm":  "sha256",
+    "content":  "3992ec87370b8737285324948b7f9280af9081b188623e59556eee487c00a9d5",
+    "files":  {
+                  "app/index.html":  "57d9ff44911abe7ea5e882c6ff6c78546d1408acfda0cac2c4edcb405ba04037",
+                  "lisp.pack":  "bf7238739ef57ad2466b09cba790a99e0a3414b915a8b89f2b15d5d278b67d51",
+                  "presence.ps1":  "773a972f08a9b5755df2e806c3f15b6bb8e7952ce62148daa0ee1a81fc5a33ef",
+                  "RELEASE.json":  "61a5d044562894a03cc8fc00caa05dbf78e6efa6d6bf5c46aa69449ae821303b",
+                  "Start.bat":  "6aa7a6e97c4c2e42b2b34b4261f1b6f63f55f2446434ea09a06e608900f43855",
+                  "vbapl.lsp":  "f8bb51383eee509f3fe42d6c3e2d066362b4753eb7f21e135be89fa699364727",
+                  "vbapl-lisp.exe":  "53ac27ffc2ace4142702f42716ef26361c3ffe34d877115c8fdf18fc80f2d9c2"
+              }
+}
