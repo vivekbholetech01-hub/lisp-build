@@ -129,7 +129,10 @@ $started = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 
 Write-Host ''
 Write-Host '  VBAPL BricsCAD LISP' -ForegroundColor Cyan
-Write-Host "  $root"
+Write-Host ''
+# The one path the Getting started page and AutoCAD/BricsCAD need on this PC.
+Write-Host '  Build folder (use this path in AutoCAD / BricsCAD):'
+Write-Host "    $root" -ForegroundColor White
 Write-Host ''
 if ($release) {
   Write-Host "  Release  : $($release.name)  (source $($release.commit), built $($release.builtAt))"
