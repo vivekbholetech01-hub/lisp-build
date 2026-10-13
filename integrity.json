@@ -1,13 +1,13 @@
 {
     "algorithm":  "sha256",
-    "content":  "f04f7bf3b5cfc50df070428179e8b3eb8987afe95ad4a8e75a2e75f0994a8607",
+    "content":  "eccdcd9367b6aa760351cbfaff43cff2a9a4244996cfc07b08abf55dad4c429f",
     "files":  {
-                  "app/index.html":  "3496cc356f29e9d9a7e0e997e7dc7f4b15120f2226a5eeaee25ba919385773ba",
-                  "lisp.pack":  "d7495c0a1d5c91c5e6ba0739af45c95fc3cfc3b5be9bc087fc183ba46eb98863",
+                  "app/index.html":  "a6697af84212376fd90ac6d88aea585a0d5dc29c0e0018545a415a62d0bd9290",
+                  "lisp.pack":  "3a83727bd72a989cbf44159ac54dc77395e288cb8bbfc0daef47606169cf69c9",
                   "presence.ps1":  "64a1885ceec3b48f798f02758fcf5efa8e8bd52aeedd2f226fe981299c477c94",
-                  "RELEASE.json":  "69f2c2c63b49f6457186f14100fa7fd06b9d6ec395481180af58b97295fb509c",
+                  "RELEASE.json":  "aa97439e7a49f965d3c39efb48116b17fc0e7787d4a50b7b6b0ff20efee2f35b",
                   "Start.bat":  "366c1f689448402c13c4a4a75fe0fd80c1d9c2eef17da3ecdb1816a5196b8533",
                   "vbapl.lsp":  "2e61fb986893e1d5cf304713e1ce1630e94b90d47818e3a8260e53ae22acf104",
-                  "vbapl-lisp.exe":  "533cb983c62a904de6bbc29ec546a098473805497d4ee1ce235d7bb3068cae12"
+                  "vbapl-lisp.exe":  "fe11e9e09389377191085921ce5bb3029a8daa2bc3a8895c3aaadb28520364dc"
               }
 }
