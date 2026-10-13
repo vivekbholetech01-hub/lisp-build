@@ -155,7 +155,11 @@ Write-Host ''
 # Once per PC: the admin types the admin password here. Staff never need it -
 # and while the PC is not approved, the LISP stays locked.
 $before = Get-Licence
-if ($before -and $before.approved -eq $false) {
+if ($before -and $before.blocked) {
+  Write-Host '  This PC has been blocked by the admin - the tools stay locked.' -ForegroundColor Red
+  Write-Host '  Only the admin can unblock it, from the dev app.'
+  Write-Host ''
+} elseif ($before -and $before.approved -eq $false) {
   Write-Host '  This PC is not approved yet.' -ForegroundColor Yellow
   Write-Host '  The admin types the admin password here - once. (Enter on its own skips.)'
   for ($try = 1; $try -le 3; $try++) {
@@ -225,7 +229,11 @@ try {
       intact   = $intact
       bricscad = [bool](Get-Process -Name 'bricscad', 'acad' -ErrorAction SilentlyContinue)
       licence  = if ($licence) {
-        [ordered]@{ state = $licence.state; startsLeft = $licence.startsLeft; daysLeft = $licence.daysLeft; reason = $licence.reason; session = $licence.session }
+        [ordered]@{
+          state = $licence.state; startsLeft = $licence.startsLeft; daysLeft = $licence.daysLeft; reason = $licence.reason
+          session = $licence.session; approved = $licence.approved; approval = $licence.approval
+          machine = $licence.machine; blocked = $licence.blocked
+        }
       } else { $null }
       started  = $started
       seq      = $seq

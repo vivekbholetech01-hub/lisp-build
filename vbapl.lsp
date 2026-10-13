@@ -77,6 +77,13 @@
          )
          ((vbapl:tag-p line "DIR ") (vbapl:support-dir (substr line 5)))
          ((vbapl:tag-p line "DES ") (vl-catch-all-apply 'load (list (substr line 5))))
+         ((vbapl:tag-p line "DLL ")
+          (if (vl-catch-all-error-p
+                (vl-catch-all-apply '(lambda (p) (vl-cmdf "_.NETLOAD" p)) (list (substr line 5))))
+            (setq failed (1+ failed))
+            (setq done (1+ done))
+          )
+         )
          ((vbapl:tag-p line "OK ") (setq release (substr line 4)))
          ((vbapl:tag-p line "LOCKED ") (setq locked (substr line 8)))
        )
