@@ -23,9 +23,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# The build repo. lisp-dev\build\release.ps1 publishes to the same one.
-$REPO_URL = 'https://github.com/vivekbholetech01-hub/lisp-build.git'
-$REPO_NAME = 'lisp-build'
+# The build repo. tool-dev\build\release.ps1 publishes to the same one.
+$REPO_URL = 'https://github.com/vivekbholetech01-hub/tool-build.git'
+$REPO_NAME = 'tool-build'
 $INSTALLER_FILES = @('update.ps1', 'Update.bat', 'Switch Version.bat')
 
 $repoUrl = if ($Repo) { $Repo } else { $REPO_URL }
@@ -113,8 +113,16 @@ if ((Invoke-Git @('--version')).Code -ne 0) {
 $isRepo = Test-Path -LiteralPath (Join-Path $root '.git')
 if ($isRepo) {
   $remote = (Invoke-Git @('remote', 'get-url', 'origin')).Out
-  if (-not ($remote -and $remote -match [regex]::Escape($REPO_NAME))) {
+  # The build repo was called lisp-build before it became tool-build. An
+  # install made then is still ours: point it at the new name and carry on.
+  $oldNames = @('lisp-build')
+  $known = $remote -and ($remote -match [regex]::Escape($REPO_NAME) -or ($oldNames | Where-Object { $remote -match [regex]::Escape($_) }))
+  if (-not $known) {
     Fail "This folder is already a git repository, but not this one:`n    $(if ($remote) { $remote } else { '(no origin remote)' })`n  Run this in an empty folder instead."
+  }
+  if ($remote -notmatch [regex]::Escape($REPO_NAME) -and -not $Repo) {
+    $null = Git @('remote', 'set-url', 'origin', $repoUrl) 'Could not point this install at the renamed build repo.'
+    Write-Host "  The build repo is now $repoUrl - this install follows it."
   }
   $mode = 'update'
 } else {

@@ -9,10 +9,12 @@
   Start.bat works again straight away.
 
   Then, in order:
+    0. approve only on a PC not approved yet: asks for the admin password -
+               the admin types it, once (vbapl-lisp.exe approve, via stdin)
     1. unlock  vbapl-lisp.exe unlock - the 7 days / 100 starts licence
     2. page    opens app\index.html (Commands, Getting started)
     3. announce every 15 seconds, one small UDP packet (port 45753) on every
-               local network: the lisp-dev app lists the PC under "Office PCs
+               local network: the tool-dev app lists the PC under "Office PCs
                on the build" - name, user, release, whether its files still
                match it, BricsCAD/AutoCAD open, licence. It only SENDS: no
                firewall rule or admin rights needed on this PC.
@@ -98,16 +100,24 @@ function Get-Targets {
 }
 
 # Runs vbapl-lisp.exe with one argument: its exit code and what it printed.
-# It is a windowless program, so its output is read from a pipe.
-function Invoke-Helper([string]$arg) {
+# It is a windowless program, so its output is read from a pipe. $stdin, when
+# given, goes in through a pipe too - never on the command line, where any
+# program on the PC could read it.
+function Invoke-Helper([string]$arg, [string]$stdin = $null) {
   $exe = Join-Path $root 'vbapl-lisp.exe'
   if (-not (Test-Path -LiteralPath $exe)) { return $null }
   try {
     $psi = New-Object System.Diagnostics.ProcessStartInfo $exe, $arg
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardInput = ($null -ne $stdin)
     $psi.CreateNoWindow = $true
     $p = [System.Diagnostics.Process]::Start($psi)
+    if ($null -ne $stdin) {
+      $bytes = $utf8.GetBytes($stdin + "`n")
+      $p.StandardInput.BaseStream.Write($bytes, 0, $bytes.Length)
+      $p.StandardInput.Close()
+    }
     $out = $p.StandardOutput.ReadToEnd()
     $p.WaitForExit(15000) | Out-Null
     [pscustomobject]@{ Code = $p.ExitCode; Out = $out.TrimEnd() }
@@ -140,6 +150,28 @@ if ($release) {
   Write-Host '  Release  : unknown - this folder has no RELEASE.json' -ForegroundColor Yellow
 }
 Write-Host ''
+
+# ----------------------------------------------------------------- approve
+# Once per PC: the admin types the admin password here. Staff never need it -
+# and while the PC is not approved, the LISP stays locked.
+$before = Get-Licence
+if ($before -and $before.approved -eq $false) {
+  Write-Host '  This PC is not approved yet.' -ForegroundColor Yellow
+  Write-Host '  The admin types the admin password here - once. (Enter on its own skips.)'
+  for ($try = 1; $try -le 3; $try++) {
+    $secure = Read-Host -AsSecureString '  Admin password'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+    try { $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    if (-not $plain) { break }
+    $answer = Invoke-Helper 'approve' $plain
+    $plain = $null
+    if (-not $answer) { break }
+    Write-Host $answer.Out -ForegroundColor $(if ($answer.Code -eq 0) { 'Green' } else { 'Yellow' })
+    if ($answer.Code -eq 0 -or $answer.Code -eq 3) { break }   # 3: no internet - asking again will not help
+  }
+  Write-Host ''
+}
 
 # ------------------------------------------------------------------ unlock
 # One "start" - only ever run by the session that holds the mutex.
